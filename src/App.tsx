@@ -7,6 +7,7 @@ import Card, {
   CardContent,
   CardFooter,
 } from "./components/Card";
+import NeoSwitch from "./components/NeoSwitch";
 
 function App() {
   return (
@@ -34,7 +35,7 @@ function App() {
               </ul>
             </CardContent>
             <CardFooter>
-              <Button variant={"primary"}>Purchase Now</Button>
+              <NeoSwitch />
             </CardFooter>
           </Card>
         </div>
