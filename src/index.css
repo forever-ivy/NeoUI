@@ -45,3 +45,17 @@
     color: var(--color-foreground);
   }
 }
+
+@utility text-shadow-raised {
+  text-shadow:
+    2px 2px 4px var(--color-shadow),
+    -2px -2px 4px var(--color-highlight),
+    2px 2px 2.5px var(--color-primary);
+}
+
+@utility text-shadow-inset {
+  text-shadow:
+    2px 2px 4px var(--color-highlight),
+    -2px -2px 4px var(--color-shadow),
+    -2px -2px 2.5px var(--color-primary);
+}
