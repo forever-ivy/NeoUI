@@ -10,6 +10,7 @@ import Card, {
 import NeoSwitch from "./components/NeoSwitch";
 import Text from "./components/Text";
 import NeoCheckBox from "./components/NeoCheckBox";
+import NeoSlider from "./components/NeoSlider";
 
 function App() {
   return (
@@ -52,8 +53,9 @@ function App() {
                 </li>
               </ul>
             </CardContent>
-            <CardFooter className="space-x-1.5">
+            <CardFooter className=" flex-col space-y-5">
               <NeoSwitch />
+              <NeoSlider variant={"secondary"} />
             </CardFooter>
           </Card>
         </div>

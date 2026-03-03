@@ -50,12 +50,12 @@
   text-shadow:
     2px 2px 4px var(--color-shadow),
     -2px -2px 4px var(--color-highlight),
-    2px 2px 2.5px var(--color-primary);
+    1px 1px 0.5px var(--color-primary);
 }
 
 @utility text-shadow-inset {
   text-shadow:
     2px 2px 4px var(--color-highlight),
     -2px -2px 4px var(--color-shadow),
-    -2px -2px 2.5px var(--color-primary);
+    -2px -2px 1.5px var(--color-primary);
 }

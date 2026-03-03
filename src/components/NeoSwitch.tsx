@@ -6,7 +6,7 @@ const switchVariants = cva(
 );
 
 const thumbVariants = cva(
-  "relative block h-5 w-5 translate-x-0 rounded-full border-1 border-highlight bg-background shadow-inset transition-all duration-250 ease-out after:absolute after:top-1/2 after:left-1/2 after:h-1 after:w-1 after:-translate-1/2 after:rounded-full after:bg-muted-foreground data-[checked]:translate-x-6 data-[checked]:after:bg-primary",
+  "relative block h-5 w-5 translate-x-0 rounded-full border-1.5 border-highlight bg-background shadow-inset transition-all duration-250 ease-out after:absolute after:top-1/2 after:left-1/2 after:h-1 after:w-1 after:-translate-1/2 after:rounded-full after:bg-muted-foreground data-[checked]:translate-x-6 data-[checked]:after:bg-primary",
 );
 
 interface SwitchProps
