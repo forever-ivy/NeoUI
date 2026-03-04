@@ -8,17 +8,20 @@
   --color-primary: var(--color-indigo-600);
   --color-destructive: var(--color-red-600);
   --color-warning: var(--color-orange-600);
-  --color-shadow: rgba(0, 0, 0, 0.15);
-  --color-highlight: var(--color-white);
-  --color-border: var(--color-zinc-100);
+  --color-shadow: rgba(0, 0, 0, 0.2);
+  --color-highlight: rgba(255, 255, 255, 1);
+  --color-border: var(--color-zinc-200);
   --shadow-raised:
-    2px 2px 6px var(--color-shadow), -2px -2px 6px var(--color-highlight),
     inset 0px 0px 0px var(--color-shadow),
-    inset 0px 0px 0px var(--color-highlight);
+    inset -0px -0px 0px var(--color-highlight), 2px 2px 6px var(--color-shadow),
+    -2px -2px 6px var(--color-highlight),
+    inset 1px 1px 2px var(--color-highlight),
+    inset -1px -1px 2px var(--color-shadow);
+
   --shadow-inset:
-    1px 1px 2px var(--color-shadow), -1px -1px 2px var(--color-highlight),
     inset 2px 2px 6px var(--color-shadow),
-    inset -2px -2px 6px var(--color-highlight);
+    inset -2px -2px 6px var(--color-highlight), 1px 1px 1px var(--color-shadow),
+    -1px -1px 1px var(--color-highlight);
   --color-muted: var(--color-zinc-300);
   --color-muted-foreground: var(--color-zinc-600);
 }
