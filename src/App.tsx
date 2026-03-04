@@ -12,6 +12,8 @@ import Text from "./components/Text";
 import NeoCheckBox from "./components/NeoCheckBox";
 import NeoSlider from "./components/NeoSlider";
 import NeoProgress from "./components/NeoProgress";
+import { Badge } from "./components/Badge";
+import Input from "./components/Input";
 
 function App() {
   return (
@@ -34,6 +36,10 @@ function App() {
           <Button variant={"primary"} disabled>
             Waring
           </Button>
+          <Badge variant={"default"}>Hello</Badge>
+          <Badge variant={"primary"}>Good</Badge>
+          <Badge variant={"warning"}>Hey</Badge>
+          <Badge variant={"destructive"}>Like</Badge>
         </div>
         <div className="m-6">
           <Card>
@@ -57,6 +63,7 @@ function App() {
             <CardFooter className=" flex-col space-y-5">
               <NeoSwitch />
               <NeoSlider variant={"secondary"} />
+              <Input />
             </CardFooter>
           </Card>
         </div>
