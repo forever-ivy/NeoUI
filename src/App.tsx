@@ -11,6 +11,7 @@ import NeoSwitch from "./components/NeoSwitch";
 import Text from "./components/Text";
 import NeoCheckBox from "./components/NeoCheckBox";
 import NeoSlider from "./components/NeoSlider";
+import NeoProgress from "./components/NeoProgress";
 
 function App() {
   return (
@@ -57,6 +58,82 @@ function App() {
               <NeoSwitch />
               <NeoSlider variant={"secondary"} />
             </CardFooter>
+          </Card>
+        </div>
+        <div className="m-6 flex space-x-10">
+          <Card className="w-[20%]">
+            <CardHeader>
+              <CardTittle>Progress bars</CardTittle>
+              <CardDescription>Simple vertical/horizontal bars</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 h-36 flex gap-6">
+              <NeoProgress orientation={"vertical"} max={100} value={25} />
+              <NeoProgress orientation={"vertical"} max={100} value={50} />
+              <NeoProgress orientation={"vertical"} max={100} value={75} />
+            </CardContent>
+          </Card>
+          <Card className="w-[20%]">
+            <CardHeader>
+              <CardTittle>Progress bars</CardTittle>
+              <CardDescription>Simple vertical/horizontal bars</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 ">
+              <NeoProgress orientation={"horizontal"} max={100} value={25} />
+              <NeoProgress orientation={"horizontal"} max={100} value={50} />
+              <NeoProgress orientation={"horizontal"} max={100} value={75} />
+            </CardContent>
+          </Card>
+          <Card className="w-[20%]">
+            <CardHeader>
+              <CardTittle>Progress bars</CardTittle>
+              <CardDescription>Simple vertical/horizontal bars</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 h-36 flex gap-6">
+              <NeoProgress
+                variant={"secondary"}
+                orientation={"vertical"}
+                max={100}
+                value={25}
+              />
+              <NeoProgress
+                variant={"secondary"}
+                orientation={"vertical"}
+                max={100}
+                value={50}
+              />
+              <NeoProgress
+                variant={"secondary"}
+                orientation={"vertical"}
+                max={100}
+                value={75}
+              />
+            </CardContent>
+          </Card>
+          <Card className="w-[20%]">
+            <CardHeader>
+              <CardTittle>Progress bars</CardTittle>
+              <CardDescription>Simple vertical/horizontal bars</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 ">
+              <NeoProgress
+                variant={"secondary"}
+                orientation={"horizontal"}
+                max={100}
+                value={25}
+              />
+              <NeoProgress
+                variant={"secondary"}
+                orientation={"horizontal"}
+                max={100}
+                value={50}
+              />
+              <NeoProgress
+                variant={"secondary"}
+                orientation={"horizontal"}
+                max={100}
+                value={75}
+              />
+            </CardContent>
           </Card>
         </div>
       </div>
