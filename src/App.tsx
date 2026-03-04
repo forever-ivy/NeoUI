@@ -7,6 +7,7 @@ import Card, {
   CardContent,
   CardFooter,
 } from "./components/Card";
+
 import NeoSwitch from "./components/NeoSwitch";
 import Text from "./components/Text";
 import NeoCheckBox from "./components/NeoCheckBox";
@@ -14,6 +15,7 @@ import NeoSlider from "./components/NeoSlider";
 import NeoProgress from "./components/NeoProgress";
 import { Badge } from "./components/Badge";
 import Input from "./components/Input";
+import { TabsList, TabsPanel, TabsRoot, TabsTab } from "./components/Tabs";
 
 function App() {
   return (
@@ -143,6 +145,25 @@ function App() {
             </CardContent>
           </Card>
         </div>
+        <Card className="m-6">
+          <CardHeader>
+            <TabsRoot>
+              <TabsList className={"space-x-2"}>
+                <TabsTab value={"overview"}>Overview</TabsTab>
+                <TabsTab value={"user"}>User</TabsTab>
+              </TabsList>
+
+              <TabsPanel value={"overview"}>
+                <h2>This is overview</h2>
+                <p>This is more info about the overview</p>
+              </TabsPanel>
+
+              <TabsPanel value={"user"}>
+                <h2>This is for the user</h2>
+              </TabsPanel>
+            </TabsRoot>
+          </CardHeader>
+        </Card>
       </div>
     </main>
   );
