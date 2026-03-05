@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import Button from "./components/Button";
 import Nav from "./components/Nav";
 import Card, {
@@ -15,7 +16,7 @@ import NeoProgress from "./components/NeoProgress";
 import { Badge } from "./components/Badge";
 import Input from "./components/Input";
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from "./components/Tabs";
-import Upload from "./components/Upload";
+import Upload, { type UploadRef } from "./components/Upload";
 
 const buttonExamples = [
   { label: "Default", variant: "default" },
@@ -73,6 +74,8 @@ const progressBlocks = [
 ] as const;
 
 function App() {
+  const uploadRef = useRef<UploadRef | null>(null);
+
   return (
     <main className="min-h-screen pb-12">
       <Nav />
@@ -235,12 +238,51 @@ function App() {
                 status.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => uploadRef.current?.open()}
+                >
+                  Open Selector
+                </Button>
+                <Button
+                  type="button"
+                  variant="warning"
+                  onClick={() => uploadRef.current?.abort()}
+                >
+                  Abort Uploading
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => uploadRef.current?.clear()}
+                >
+                  Clear List
+                </Button>
+              </div>
               <Upload
+                ref={uploadRef}
                 accept="image/*,.pdf"
                 maxCount={4}
                 maxSizeMB={5}
                 listType="picture"
+                onPreview={(file) => {
+                  console.info("[Upload:onPreview]", file.name);
+                }}
+                onExceed={(incomingFiles) => {
+                  console.warn(
+                    `[Upload:onExceed] ${incomingFiles.length} file(s) exceeded maxCount.`,
+                  );
+                }}
+                onFileReject={(file, reason, message) => {
+                  console.warn("[Upload:onFileReject]", {
+                    name: file.name,
+                    reason,
+                    message,
+                  });
+                }}
               />
             </CardContent>
           </Card>

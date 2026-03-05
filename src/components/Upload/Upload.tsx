@@ -1,16 +1,23 @@
 import { mergeProps } from "@base-ui-components/react";
 import { cva } from "class-variance-authority";
-import { useCallback, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useId,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { twMerge } from "tailwind-merge";
 import { useControllableState } from "../../hooks/useControllableState";
 import { useUploadQueue } from "../../hooks/useUploadQueue";
 import Dragger from "./Dragger";
 import UploadList from "./UploadList";
-import type { NeoUploadFile, UploadProps } from "./types";
+import type { NeoUploadFile, UploadProps, UploadRef } from "./types";
 
 const uploadRootVariants = cva("space-y-4");
 
-export default function Upload(props: UploadProps) {
+const Upload = forwardRef<UploadRef, UploadProps>(function Upload(props, ref) {
   const {
     fileList,
     defaultFileList = [],
@@ -19,6 +26,11 @@ export default function Upload(props: UploadProps) {
     customRequest,
     onRemove,
     onRetry,
+    onAbort,
+    onPreview,
+    onExceed,
+    onFileReject,
+    itemRender,
     multiple = true,
     accept,
     maxCount,
@@ -26,12 +38,14 @@ export default function Upload(props: UploadProps) {
     draggable = true,
     disabled = false,
     maxSizeMB,
+    ariaLabel = "File upload",
     className,
     ...otherProps
   } = props;
 
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const draggerDescriptionId = useId();
   const [mergedFileList, setMergedFileList] = useControllableState<
     NeoUploadFile[]
   >({
@@ -40,21 +54,49 @@ export default function Upload(props: UploadProps) {
     onChange,
   });
 
-  const { queueFiles, removeFile, retryFile } = useUploadQueue({
-    fileList: mergedFileList,
-    setFileList: setMergedFileList,
-    beforeUpload,
-    customRequest,
-    disabled,
-    maxCount,
-    maxSizeMB,
-  });
+  const { queueFiles, removeFile, retryFile, abortFile, abortAll, clearAll } =
+    useUploadQueue({
+      fileList: mergedFileList,
+      setFileList: setMergedFileList,
+      beforeUpload,
+      customRequest,
+      accept,
+      disabled,
+      maxCount,
+      maxSizeMB,
+      onExceed,
+      onFileReject,
+    });
 
   const openFileDialog = useCallback(() => {
     if (!disabled) {
       inputRef.current?.click();
     }
   }, [disabled]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      open: () => {
+        openFileDialog();
+      },
+      abort: (uid?: string) => {
+        if (uid) {
+          const abortedFile = abortFile(uid);
+          if (abortedFile) {
+            onAbort?.(abortedFile);
+          }
+          return;
+        }
+        const abortedFiles = abortAll();
+        abortedFiles.forEach((item) => onAbort?.(item));
+      },
+      clear: () => {
+        clearAll();
+      },
+    }),
+    [abortAll, abortFile, clearAll, onAbort, openFileDialog],
+  );
 
   const handleInputChange: React.ChangeEventHandler<HTMLInputElement> = (
     event,
@@ -110,6 +152,28 @@ export default function Upload(props: UploadProps) {
     [onRetry, retryFile],
   );
 
+  const handleAbort = useCallback(
+    (uid: string) => {
+      const abortedFile = abortFile(uid);
+      if (abortedFile) {
+        onAbort?.(abortedFile);
+      }
+    },
+    [abortFile, onAbort],
+  );
+
+  const handlePreview = useCallback(
+    (uid: string) => {
+      const targetFile = mergedFileList.find((item) => item.uid === uid);
+      if (!targetFile) return;
+      onPreview?.(targetFile);
+      if (!onPreview && targetFile.url) {
+        window.open(targetFile.url, "_blank", "noopener,noreferrer");
+      }
+    },
+    [mergedFileList, onPreview],
+  );
+
   const mergedProps = mergeProps(otherProps, {
     className: twMerge(uploadRootVariants(), className),
   });
@@ -132,6 +196,8 @@ export default function Upload(props: UploadProps) {
         draggable={draggable}
         maxCount={maxCount}
         maxSizeMB={maxSizeMB}
+        ariaLabel={ariaLabel}
+        describedById={draggerDescriptionId}
         onOpenFileDialog={openFileDialog}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -142,9 +208,14 @@ export default function Upload(props: UploadProps) {
         fileList={mergedFileList}
         listType={listType}
         disabled={disabled}
+        itemRender={itemRender}
         onRemove={handleRemove}
         onRetry={handleRetry}
+        onAbort={handleAbort}
+        onPreview={handlePreview}
       />
     </div>
   );
-}
+});
+
+export default Upload;

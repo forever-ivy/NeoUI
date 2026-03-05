@@ -8,6 +8,8 @@ interface DraggerProps {
   draggable: boolean;
   maxCount?: number;
   maxSizeMB?: number;
+  ariaLabel: string;
+  describedById: string;
   onOpenFileDialog: () => void;
   onDragOver: React.DragEventHandler<HTMLDivElement>;
   onDragLeave: React.DragEventHandler<HTMLDivElement>;
@@ -15,7 +17,7 @@ interface DraggerProps {
 }
 
 const draggerVariants = cva(
-  "rounded-2xl border-2 border-dashed border-border p-5 transition-all duration-250 bg-linear-to-tl from-background to-highlight/60 shadow-raised",
+  "rounded-2xl border-2 border-dashed border-border p-5 transition-all duration-250 bg-linear-to-tl from-background to-highlight/60 shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2",
   {
     variants: {
       dragging: {
@@ -40,6 +42,8 @@ export default function Dragger({
   draggable,
   maxCount,
   maxSizeMB,
+  ariaLabel,
+  describedById,
   onOpenFileDialog,
   onDragOver,
   onDragLeave,
@@ -58,6 +62,9 @@ export default function Dragger({
       onDrop={onDrop}
       role="button"
       tabIndex={disabled ? -1 : 0}
+      aria-label={ariaLabel}
+      aria-disabled={disabled}
+      aria-describedby={describedById}
       onKeyDown={(event) => {
         if (disabled) return;
         if (event.key === "Enter" || event.key === " ") {
@@ -69,7 +76,7 @@ export default function Dragger({
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-1">
           <p className="font-semibold">Upload Files</p>
-          <p className="text-sm text-muted-foreground">
+          <p id={describedById} className="text-sm text-muted-foreground">
             Click to select files{draggable ? " or drag files here" : ""}
           </p>
           <p className="text-xs text-muted-foreground">
