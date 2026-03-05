@@ -7,6 +7,8 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  type ChangeEventHandler,
+  type DragEventHandler,
 } from "react";
 import { twMerge } from "tailwind-merge";
 import { useControllableState } from "../../hooks/useControllableState";
@@ -23,14 +25,20 @@ const Upload = forwardRef<UploadRef, UploadProps>(function Upload(props, ref) {
     defaultFileList = [],
     onChange,
     beforeUpload,
-    customRequest,
+    action,
+    method,
+    name,
+    data,
+    headers,
+    withCredentials,
+    timeout,
+    previewFile,
     onRemove,
     onRetry,
-    onAbort,
     onPreview,
     onExceed,
     onFileReject,
-    itemRender,
+    onDrop,
     multiple = true,
     accept,
     maxCount,
@@ -54,19 +62,25 @@ const Upload = forwardRef<UploadRef, UploadProps>(function Upload(props, ref) {
     onChange,
   });
 
-  const { queueFiles, removeFile, retryFile, abortFile, abortAll, clearAll } =
-    useUploadQueue({
-      fileList: mergedFileList,
-      setFileList: setMergedFileList,
-      beforeUpload,
-      customRequest,
-      accept,
-      disabled,
-      maxCount,
-      maxSizeMB,
-      onExceed,
-      onFileReject,
-    });
+  const { queueFiles, removeFile, retryFile } = useUploadQueue({
+    fileList: mergedFileList,
+    setFileList: setMergedFileList,
+    beforeUpload,
+    action,
+    method,
+    name,
+    data,
+    headers,
+    withCredentials,
+    timeout,
+    previewFile,
+    accept,
+    disabled,
+    maxCount,
+    maxSizeMB,
+    onExceed,
+    onFileReject,
+  });
 
   const openFileDialog = useCallback(() => {
     if (!disabled) {
@@ -80,33 +94,17 @@ const Upload = forwardRef<UploadRef, UploadProps>(function Upload(props, ref) {
       open: () => {
         openFileDialog();
       },
-      abort: (uid?: string) => {
-        if (uid) {
-          const abortedFile = abortFile(uid);
-          if (abortedFile) {
-            onAbort?.(abortedFile);
-          }
-          return;
-        }
-        const abortedFiles = abortAll();
-        abortedFiles.forEach((item) => onAbort?.(item));
-      },
-      clear: () => {
-        clearAll();
-      },
     }),
-    [abortAll, abortFile, clearAll, onAbort, openFileDialog],
+    [openFileDialog],
   );
 
-  const handleInputChange: React.ChangeEventHandler<HTMLInputElement> = (
-    event,
-  ) => {
+  const handleInputChange: ChangeEventHandler<HTMLInputElement> = (event) => {
     const selected = Array.from(event.target.files ?? []);
     event.target.value = "";
     void queueFiles(selected);
   };
 
-  const handleDragOver: React.DragEventHandler<HTMLDivElement> = (event) => {
+  const handleDragOver: DragEventHandler<HTMLDivElement> = (event) => {
     if (!draggable || disabled) return;
     event.preventDefault();
     if (!isDragging) {
@@ -114,7 +112,7 @@ const Upload = forwardRef<UploadRef, UploadProps>(function Upload(props, ref) {
     }
   };
 
-  const handleDragLeave: React.DragEventHandler<HTMLDivElement> = (event) => {
+  const handleDragLeave: DragEventHandler<HTMLDivElement> = (event) => {
     if (!draggable || disabled) return;
     event.preventDefault();
     const nextTarget = event.relatedTarget;
@@ -124,11 +122,12 @@ const Upload = forwardRef<UploadRef, UploadProps>(function Upload(props, ref) {
     setIsDragging(false);
   };
 
-  const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
+  const handleDrop: DragEventHandler<HTMLDivElement> = (event) => {
     if (!draggable || disabled) return;
     event.preventDefault();
     setIsDragging(false);
     const dropped = Array.from(event.dataTransfer.files ?? []);
+    onDrop?.(dropped, event);
     void queueFiles(dropped);
   };
 
@@ -152,23 +151,16 @@ const Upload = forwardRef<UploadRef, UploadProps>(function Upload(props, ref) {
     [onRetry, retryFile],
   );
 
-  const handleAbort = useCallback(
-    (uid: string) => {
-      const abortedFile = abortFile(uid);
-      if (abortedFile) {
-        onAbort?.(abortedFile);
-      }
-    },
-    [abortFile, onAbort],
-  );
-
   const handlePreview = useCallback(
     (uid: string) => {
       const targetFile = mergedFileList.find((item) => item.uid === uid);
       if (!targetFile) return;
       onPreview?.(targetFile);
-      if (!onPreview && targetFile.url) {
-        window.open(targetFile.url, "_blank", "noopener,noreferrer");
+      if (!onPreview) {
+        const targetUrl = targetFile.url ?? targetFile.thumbUrl;
+        if (targetUrl) {
+          window.open(targetUrl, "_blank", "noopener,noreferrer");
+        }
       }
     },
     [mergedFileList, onPreview],
@@ -208,10 +200,8 @@ const Upload = forwardRef<UploadRef, UploadProps>(function Upload(props, ref) {
         fileList={mergedFileList}
         listType={listType}
         disabled={disabled}
-        itemRender={itemRender}
         onRemove={handleRemove}
         onRetry={handleRetry}
-        onAbort={handleAbort}
         onPreview={handlePreview}
       />
     </div>

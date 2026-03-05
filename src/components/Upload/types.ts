@@ -1,8 +1,15 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type { DragEvent, HTMLAttributes } from "react";
 
+export type UploadMethod = "POST" | "PUT" | "PATCH";
 export type UploadStatus = "ready" | "uploading" | "done" | "error";
-export type UploadListType = "text" | "picture";
+export type UploadListType =
+  | "text"
+  | "picture"
+  | "picture-card"
+  | "picture-circle";
 export type UploadRejectReason = "accept" | "size" | "maxCount" | "beforeUpload";
+export type UploadData = Record<string, unknown>;
+export type BeforeUpload = (file: File) => boolean | Promise<boolean>;
 
 export interface NeoUploadFile {
   uid: string;
@@ -10,47 +17,53 @@ export interface NeoUploadFile {
   size: number;
   type: string;
   status: UploadStatus;
-  percent: number;
   rawFile: File;
+  percent: number;
   url?: string;
+  thumbUrl?: string;
   response?: unknown;
   error?: string;
+  xhr?: XMLHttpRequest | null;
 }
 
 export interface UploadRequestOptions {
   file: File;
+  action: string;
+  filename: string;
+  method: UploadMethod;
+  data?: UploadData;
+  headers?: Record<string, string>;
+  withCredentials?: boolean;
+  timeout?: number;
   onProgress: (percent: number) => void;
   onSuccess: (response?: unknown) => void;
   onError: (error: string) => void;
 }
 
-export type UploadRequestResult = void | (() => void) | { abort: () => void };
-export type UploadRequest = (options: UploadRequestOptions) => UploadRequestResult;
-export type BeforeUpload = (file: File) => boolean | Promise<boolean>;
-
-export interface UploadActions {
-  remove: () => void;
-  retry: () => void;
+export interface UploadRequestHandle {
   abort: () => void;
-  preview: () => void;
+  xhr?: XMLHttpRequest | null;
 }
 
 export interface UploadRef {
   open: () => void;
-  abort: (uid?: string) => void;
-  clear: () => void;
 }
 
 export interface UploadProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, "onChange" | "onAbort"> {
+  extends Omit<HTMLAttributes<HTMLDivElement>, "onChange" | "onDrop"> {
   fileList?: NeoUploadFile[];
   defaultFileList?: NeoUploadFile[];
   onChange?: (nextFileList: NeoUploadFile[]) => void;
   beforeUpload?: BeforeUpload;
-  customRequest?: UploadRequest;
+  action: string;
+  method?: UploadMethod;
+  name?: string;
+  data?: UploadData;
+  headers?: Record<string, string>;
+  withCredentials?: boolean;
+  timeout?: number;
   onRemove?: (file: NeoUploadFile, nextFileList: NeoUploadFile[]) => void;
   onRetry?: (file: NeoUploadFile) => void;
-  onAbort?: (file: NeoUploadFile) => void;
   onPreview?: (file: NeoUploadFile) => void;
   onExceed?: (incomingFiles: File[], currentFileList: NeoUploadFile[]) => void;
   onFileReject?: (
@@ -58,11 +71,8 @@ export interface UploadProps
     reason: UploadRejectReason,
     message: string,
   ) => void;
-  itemRender?: (
-    file: NeoUploadFile,
-    defaultNode: ReactNode,
-    actions: UploadActions,
-  ) => ReactNode;
+  onDrop?: (files: File[], event: DragEvent<HTMLDivElement>) => void;
+  previewFile?: (file: File) => Promise<string>;
   multiple?: boolean;
   accept?: string;
   maxCount?: number;

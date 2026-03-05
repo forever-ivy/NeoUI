@@ -1,17 +1,36 @@
 import { useCallback, useEffect, useRef } from "react";
+import { xhrUploadRequest } from "../components/Upload/request";
 import type {
   BeforeUpload,
   NeoUploadFile,
+  UploadData,
+  UploadMethod,
   UploadRejectReason,
-  UploadRequest,
-  UploadRequestOptions,
+  UploadRequestHandle,
 } from "../components/Upload/types";
+import {
+  clampPercent,
+  collectBlobUrls,
+  createThumbUrl,
+  createUid,
+  isBlobUrl,
+  isFileAccepted,
+  normalizeUploadError,
+  revokeBlobUrl,
+} from "../components/Upload/utils";
 
 interface UseUploadQueueParams {
   fileList: NeoUploadFile[];
   setFileList: (updater: React.SetStateAction<NeoUploadFile[]>) => void;
   beforeUpload?: BeforeUpload;
-  customRequest?: UploadRequest;
+  action: string;
+  method?: UploadMethod;
+  name?: string;
+  data?: UploadData;
+  headers?: Record<string, string>;
+  withCredentials?: boolean;
+  timeout?: number;
+  previewFile?: (file: File) => Promise<string>;
   accept?: string;
   disabled?: boolean;
   maxCount?: number;
@@ -33,109 +52,20 @@ interface UseUploadQueueResult {
   queueFiles: (selectedFiles: File[]) => Promise<void>;
   removeFile: (uid: string) => RemoveFileResult;
   retryFile: (uid: string) => NeoUploadFile | undefined;
-  abortFile: (uid: string) => NeoUploadFile | undefined;
-  abortAll: () => NeoUploadFile[];
-  clearAll: () => NeoUploadFile[];
-}
-
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, value));
-}
-
-function createUid() {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function normalizeUploadError(error: unknown) {
-  if (typeof error === "string") return error;
-  if (error instanceof Error) return error.message;
-  return "Upload failed";
-}
-
-function createPreviewUrl(file: File) {
-  if (!file.type.startsWith("image/")) return undefined;
-  return URL.createObjectURL(file);
-}
-
-function isBlobUrl(url?: string): url is string {
-  return typeof url === "string" && url.startsWith("blob:");
-}
-
-function collectBlobUrls(fileList: NeoUploadFile[]) {
-  const blobUrls = new Set<string>();
-  fileList.forEach((item) => {
-    if (isBlobUrl(item.url)) {
-      blobUrls.add(item.url);
-    }
-  });
-  return blobUrls;
-}
-
-function revokePreviewUrl(url?: string) {
-  if (isBlobUrl(url)) {
-    URL.revokeObjectURL(url);
-  }
-}
-
-function matchAcceptRule(file: File, acceptRule: string) {
-  const lowerRule = acceptRule.toLowerCase();
-  const fileType = file.type.toLowerCase();
-  const fileName = file.name.toLowerCase();
-
-  if (lowerRule.startsWith(".")) {
-    return fileName.endsWith(lowerRule);
-  }
-
-  if (lowerRule.endsWith("/*")) {
-    const typePrefix = lowerRule.slice(0, -1);
-    return fileType.startsWith(typePrefix);
-  }
-
-  return fileType === lowerRule;
-}
-
-function isFileAccepted(file: File, accept?: string) {
-  if (!accept || accept.trim() === "") {
-    return true;
-  }
-
-  const acceptRules = accept
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (acceptRules.length === 0) {
-    return true;
-  }
-
-  return acceptRules.some((rule) => matchAcceptRule(file, rule));
-}
-
-function defaultRequest(options: UploadRequestOptions): () => void {
-  let progress = 0;
-  const intervalId = window.setInterval(() => {
-    progress += 12 + Math.random() * 20;
-    if (progress >= 100) {
-      window.clearInterval(intervalId);
-      options.onProgress(100);
-      window.setTimeout(() => {
-        options.onSuccess({ ok: true });
-      }, 180);
-      return;
-    }
-    options.onProgress(progress);
-  }, 220);
-
-  return () => {
-    window.clearInterval(intervalId);
-  };
 }
 
 export function useUploadQueue({
   fileList,
   setFileList,
   beforeUpload,
-  customRequest,
+  action,
+  method = "POST",
+  name = "file",
+  data,
+  headers,
+  withCredentials,
+  timeout,
+  previewFile,
   accept,
   disabled,
   maxCount,
@@ -144,7 +74,7 @@ export function useUploadQueue({
   onFileReject,
 }: UseUploadQueueParams): UseUploadQueueResult {
   const fileListRef = useRef(fileList);
-  const abortMapRef = useRef<Record<string, () => void>>({});
+  const abortMapRef = useRef<Record<string, UploadRequestHandle>>({});
   const blobUrlSetRef = useRef<Set<string>>(collectBlobUrls(fileList));
 
   useEffect(() => {
@@ -152,7 +82,7 @@ export function useUploadQueue({
     const nextBlobUrls = collectBlobUrls(fileList);
     prevBlobUrls.forEach((url) => {
       if (!nextBlobUrls.has(url)) {
-        revokePreviewUrl(url);
+        revokeBlobUrl(url);
       }
     });
     blobUrlSetRef.current = nextBlobUrls;
@@ -161,9 +91,9 @@ export function useUploadQueue({
 
   useEffect(() => {
     return () => {
-      Object.values(abortMapRef.current).forEach((abort) => abort());
+      Object.values(abortMapRef.current).forEach((handle) => handle.abort());
       abortMapRef.current = {};
-      blobUrlSetRef.current.forEach((url) => revokePreviewUrl(url));
+      blobUrlSetRef.current.forEach((url) => revokeBlobUrl(url));
       blobUrlSetRef.current = new Set();
     };
   }, []);
@@ -201,129 +131,117 @@ export function useUploadQueue({
 
   const startUpload = useCallback(
     (targetFile: NeoUploadFile) => {
-      abortMapRef.current[targetFile.uid]?.();
-      delete abortMapRef.current[targetFile.uid];
+      const latestFile =
+        fileListRef.current.find((item) => item.uid === targetFile.uid) ??
+        targetFile;
 
-      updateFileByUid(targetFile.uid, (item) => ({
+      abortMapRef.current[latestFile.uid]?.abort();
+      delete abortMapRef.current[latestFile.uid];
+
+      updateFileByUid(latestFile.uid, (item) => ({
         ...item,
         status: "uploading",
         percent: 0,
         error: undefined,
+        response: undefined,
+        xhr: null,
       }));
 
-      const request = customRequest ?? defaultRequest;
-      let requestResult: ReturnType<UploadRequest>;
-      try {
-        requestResult = request({
-          file: targetFile.rawFile,
+      const requestTask = async () => {
+        const requestHandle = xhrUploadRequest({
+          file: latestFile.rawFile,
+          action,
+          filename: name,
+          method,
+          data,
+          headers,
+          withCredentials,
+          timeout,
           onProgress: (percent) => {
-            updateFileByUid(targetFile.uid, (item) => ({
+            updateFileByUid(latestFile.uid, (item) => ({
               ...item,
               status: "uploading",
               percent: clampPercent(percent),
             }));
           },
           onSuccess: (response) => {
-            delete abortMapRef.current[targetFile.uid];
-            updateFileByUid(targetFile.uid, (item) => ({
+            delete abortMapRef.current[latestFile.uid];
+            updateFileByUid(latestFile.uid, (item) => ({
               ...item,
               status: "done",
               percent: 100,
               response,
               error: undefined,
+              xhr: null,
             }));
           },
           onError: (error) => {
-            delete abortMapRef.current[targetFile.uid];
-            updateFileByUid(targetFile.uid, (item) => ({
+            delete abortMapRef.current[latestFile.uid];
+            updateFileByUid(latestFile.uid, (item) => ({
               ...item,
               status: "error",
-              error,
+              error: error || "Upload failed",
+              xhr: null,
             }));
           },
         });
-      } catch (error) {
-        updateFileByUid(targetFile.uid, (item) => ({
+
+        abortMapRef.current[latestFile.uid] = requestHandle;
+        if (requestHandle.xhr) {
+          updateFileByUid(latestFile.uid, (item) => ({
+            ...item,
+            xhr: requestHandle.xhr ?? null,
+          }));
+        }
+      };
+
+      void requestTask().catch((error) => {
+        delete abortMapRef.current[latestFile.uid];
+        updateFileByUid(latestFile.uid, (item) => ({
           ...item,
           status: "error",
           error: normalizeUploadError(error),
+          xhr: null,
         }));
-        return;
-      }
-
-      if (typeof requestResult === "function") {
-        abortMapRef.current[targetFile.uid] = requestResult;
-      } else if (requestResult && typeof requestResult.abort === "function") {
-        abortMapRef.current[targetFile.uid] = requestResult.abort;
-      }
+      });
     },
-    [customRequest, updateFileByUid],
+    [
+      action,
+      data,
+      headers,
+      method,
+      name,
+      timeout,
+      updateFileByUid,
+      withCredentials,
+    ],
   );
-
-  const abortFile = useCallback(
-    (uid: string) => {
-      const targetFile = fileListRef.current.find((item) => item.uid === uid);
-      if (!targetFile || targetFile.status !== "uploading") {
-        return undefined;
-      }
-
-      abortMapRef.current[uid]?.();
-      delete abortMapRef.current[uid];
-      updateFileByUid(uid, (item) => ({
-        ...item,
-        status: "error",
-        error: "Upload canceled",
-      }));
-
-      return targetFile;
-    },
-    [updateFileByUid],
-  );
-
-  const abortAll = useCallback(() => {
-    const uploadingIds = fileListRef.current
-      .filter((item) => item.status === "uploading")
-      .map((item) => item.uid);
-    const abortedFiles: NeoUploadFile[] = [];
-
-    uploadingIds.forEach((uid) => {
-      const aborted = abortFile(uid);
-      if (aborted) {
-        abortedFiles.push(aborted);
-      }
-    });
-
-    return abortedFiles;
-  }, [abortFile]);
-
-  const clearAll = useCallback(() => {
-    abortAll();
-    const currentFileList = [...fileListRef.current];
-    applyFileList([]);
-    return currentFileList;
-  }, [abortAll, applyFileList]);
 
   const queueFiles = useCallback(
     async (selectedFiles: File[]) => {
       if (disabled || selectedFiles.length === 0) return;
-      const initialFileList = [...fileListRef.current];
-      const exceededFiles: File[] = [];
-      let remainingSlots =
-        typeof maxCount === "number"
-          ? Math.max(0, maxCount - initialFileList.length)
-          : Number.POSITIVE_INFINITY;
 
-      for (const candidate of selectedFiles) {
-        if (remainingSlots <= 0) {
-          exceededFiles.push(candidate);
-          continue;
+      const currentFileList = [...fileListRef.current];
+      let acceptedCandidates = selectedFiles;
+
+      if (typeof maxCount === "number") {
+        const remainingSlots = Math.max(0, maxCount - currentFileList.length);
+        acceptedCandidates = selectedFiles.slice(0, remainingSlots);
+        const exceededFiles = selectedFiles.slice(remainingSlots);
+        if (exceededFiles.length > 0) {
+          onExceed?.(exceededFiles, currentFileList);
+          exceededFiles.forEach((file) => {
+            rejectFile(file, "maxCount", "Maximum file count exceeded");
+          });
         }
+      }
 
+      for (const candidate of acceptedCandidates) {
         if (!isFileAccepted(candidate, accept)) {
           rejectFile(
             candidate,
             "accept",
-            `File type is not allowed. Accepts: ${accept}`,
+            `File type is not allowed. Accepts: ${accept ?? ""}`,
           );
           continue;
         }
@@ -332,11 +250,7 @@ export function useUploadQueue({
           typeof maxSizeMB === "number" &&
           candidate.size > maxSizeMB * 1024 * 1024
         ) {
-          rejectFile(
-            candidate,
-            "size",
-            `File is larger than ${maxSizeMB}MB`,
-          );
+          rejectFile(candidate, "size", `File is larger than ${maxSizeMB}MB`);
           continue;
         }
 
@@ -344,23 +258,16 @@ export function useUploadQueue({
           try {
             const allowed = await beforeUpload(candidate);
             if (!allowed) {
-              rejectFile(
-                candidate,
-                "beforeUpload",
-                "Rejected by beforeUpload",
-              );
+              rejectFile(candidate, "beforeUpload", "Rejected by beforeUpload");
               continue;
             }
           } catch (error) {
-            rejectFile(
-              candidate,
-              "beforeUpload",
-              normalizeUploadError(error),
-            );
+            rejectFile(candidate, "beforeUpload", normalizeUploadError(error));
             continue;
           }
         }
 
+        const thumbUrl = createThumbUrl(candidate);
         const nextFile: NeoUploadFile = {
           uid: createUid(),
           name: candidate.name,
@@ -369,19 +276,32 @@ export function useUploadQueue({
           rawFile: candidate,
           status: "ready",
           percent: 0,
-          url: createPreviewUrl(candidate),
+          url: thumbUrl,
+          thumbUrl,
+          xhr: null,
         };
 
         applyFileList((prev) => [...prev, nextFile]);
-        remainingSlots -= 1;
-        startUpload(nextFile);
-      }
 
-      if (exceededFiles.length > 0) {
-        onExceed?.(exceededFiles, initialFileList);
-        exceededFiles.forEach((file) => {
-          rejectFile(file, "maxCount", "Maximum file count exceeded");
-        });
+        if (previewFile) {
+          void previewFile(candidate)
+            .then((previewUrl) => {
+              if (!previewUrl) return;
+              updateFileByUid(nextFile.uid, (item) => {
+                const canReplaceUrl = !item.url || isBlobUrl(item.url);
+                return {
+                  ...item,
+                  thumbUrl: previewUrl,
+                  url: canReplaceUrl ? previewUrl : item.url,
+                };
+              });
+            })
+            .catch(() => {
+              // Ignore preview generation errors to keep upload flow stable.
+            });
+        }
+
+        startUpload(nextFile);
       }
     },
     [
@@ -392,21 +312,30 @@ export function useUploadQueue({
       maxCount,
       maxSizeMB,
       onExceed,
+      previewFile,
       rejectFile,
       startUpload,
+      updateFileByUid,
     ],
   );
 
   const removeFile = useCallback(
     (uid: string) => {
-      abortMapRef.current[uid]?.();
-      delete abortMapRef.current[uid];
+      const targetFile = fileListRef.current.find((item) => item.uid === uid);
+      if (targetFile?.status === "uploading") {
+        abortMapRef.current[uid]?.abort();
+        delete abortMapRef.current[uid];
+      }
 
       let removedFile: NeoUploadFile | undefined;
       const nextFileList = applyFileList((prev) => {
         removedFile = prev.find((item) => item.uid === uid);
         return prev.filter((item) => item.uid !== uid);
       });
+
+      if (removedFile) {
+        removedFile = { ...removedFile, xhr: null };
+      }
 
       return { removedFile, nextFileList };
     },
@@ -427,8 +356,5 @@ export function useUploadQueue({
     queueFiles,
     removeFile,
     retryFile,
-    abortFile,
-    abortAll,
-    clearAll,
   };
 }

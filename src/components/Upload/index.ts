@@ -1,12 +1,10 @@
 export { default } from "./Upload";
 export type {
-  UploadActions,
   NeoUploadFile,
+  UploadMethod,
   UploadListType,
   UploadProps,
   UploadRef,
   UploadRejectReason,
-  UploadRequest,
-  UploadRequestOptions,
   UploadStatus,
 } from "./types";

@@ -77,7 +77,8 @@ export default function Dragger({
         <div className="space-y-1">
           <p className="font-semibold">Upload Files</p>
           <p id={describedById} className="text-sm text-muted-foreground">
-            Click to select files{draggable ? " or drag files here" : ""}
+            Click to select files
+            {draggable ? " or drag files here" : ""}
           </p>
           <p className="text-xs text-muted-foreground">
             {maxCount ? `Up to ${maxCount} files` : "Unlimited files"}
