@@ -234,8 +234,8 @@ function App() {
             <CardHeader>
               <CardTittle>Upload</CardTittle>
               <CardDescription>
-                Click or drag files to upload with progress, retry and list
-                status.
+                Basic upload flow: select or drag files, validate type and
+                size, view progress, retry failed uploads.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -247,27 +247,19 @@ function App() {
                 >
                   Open Selector
                 </Button>
-                <Button
-                  type="button"
-                  variant="warning"
-                  onClick={() => uploadRef.current?.abort()}
-                >
-                  Abort Uploading
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => uploadRef.current?.clear()}
-                >
-                  Clear List
-                </Button>
               </div>
+
               <Upload
                 ref={uploadRef}
                 accept="image/*,.pdf"
                 maxCount={4}
                 maxSizeMB={5}
                 listType="picture"
+                action="https://httpbin.org/post"
+                method="POST"
+                name="file"
+                data={{ from: "NeoUI", env: "demo" }}
+                timeout={12000}
                 onPreview={(file) => {
                   console.info("[Upload:onPreview]", file.name);
                 }}
@@ -282,6 +274,9 @@ function App() {
                     reason,
                     message,
                   });
+                }}
+                onDrop={(files) => {
+                  console.info("[Upload:onDrop]", files.map((file) => file.name));
                 }}
               />
             </CardContent>
